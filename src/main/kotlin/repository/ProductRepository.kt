@@ -9,7 +9,7 @@ import java.util.concurrent.atomic.AtomicInteger
  * Data access abstraction for Product entity.
  */
 interface ProductRepository {
-    fun getAll(categoryId: Int? = null): List<Product>
+    fun getAll(categoryId: Int? = null, minPrice: Double? = null, maxPrice: Double? = null): List<Product>
     fun getById(id: Int): Product?
     fun create(name: String, description: String?, price: Double, stockQuantity: Int, categoryId: Int): Product
     fun update(id: Int, name: String, description: String?, price: Double, categoryId: Int): Product?
@@ -26,13 +26,14 @@ class InMemoryProductRepository : ProductRepository {
     private val products = ConcurrentHashMap<Int, Product>()
     private val idCounter = AtomicInteger(1)
 
-    override fun getAll(categoryId: Int?): List<Product> {
-        val list = products.values.toList()
-        return if (categoryId != null) {
-            list.filter { it.categoryId == categoryId }.sortedBy { it.id }
-        } else {
-            list.sortedBy { it.id }
-        }
+    override fun getAll(categoryId: Int?, minPrice: Double?, maxPrice: Double?): List<Product> {
+        return products.values
+            .asSequence()
+            .filter { categoryId == null || it.categoryId == categoryId }
+            .filter { minPrice == null || it.price >= minPrice }
+            .filter { maxPrice == null || it.price <= maxPrice }
+            .sortedBy { it.id }
+            .toList()
     }
 
     override fun getById(id: Int): Product? {

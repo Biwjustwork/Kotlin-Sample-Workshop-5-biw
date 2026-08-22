@@ -11,11 +11,24 @@ class ProductService(
     private val productRepository: ProductRepository,
     private val categoryRepository: CategoryRepository
 ) {
-    fun getAllProducts(categoryId: Int? = null): List<Product> {
+    fun getAllProducts(
+        categoryId: Int? = null,
+        minPrice: Double? = null,
+        maxPrice: Double? = null
+    ): List<Product> {
+        if (minPrice != null && minPrice < 0.0) {
+            throw ValidationException("minPrice must be non-negative (received: $minPrice)")
+        }
+        if (maxPrice != null && maxPrice < 0.0) {
+            throw ValidationException("maxPrice must be non-negative (received: $maxPrice)")
+        }
+        if (minPrice != null && maxPrice != null && minPrice > maxPrice) {
+            throw ValidationException("minPrice ($minPrice) cannot be greater than maxPrice ($maxPrice)")
+        }
         if (categoryId != null && !categoryRepository.existsById(categoryId)) {
             throw NotFoundException("Category with id $categoryId not found")
         }
-        return productRepository.getAll(categoryId)
+        return productRepository.getAll(categoryId, minPrice, maxPrice)
     }
 
     fun getProductById(id: Int): Product {

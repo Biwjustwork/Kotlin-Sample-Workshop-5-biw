@@ -17,7 +17,13 @@ fun Route.productRoutes(productService: ProductService) {
             val categoryId = call.request.queryParameters["categoryId"]?.let {
                 it.toIntOrNull() ?: throw ValidationException("Invalid categoryId query parameter. Must be an integer.")
             }
-            val products = productService.getAllProducts(categoryId)
+            val minPrice = call.request.queryParameters["minPrice"]?.let {
+                it.toDoubleOrNull() ?: throw ValidationException("Invalid minPrice query parameter. Must be a valid number.")
+            }
+            val maxPrice = call.request.queryParameters["maxPrice"]?.let {
+                it.toDoubleOrNull() ?: throw ValidationException("Invalid maxPrice query parameter. Must be a valid number.")
+            }
+            val products = productService.getAllProducts(categoryId, minPrice, maxPrice)
             call.respond(HttpStatusCode.OK, products)
         }
 

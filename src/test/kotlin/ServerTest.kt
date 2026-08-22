@@ -106,4 +106,56 @@ class ServerTest {
         val deleteCatResponse = jsonClient.delete("/categories/${createdCat.id}")
         assertEquals(HttpStatusCode.NoContent, deleteCatResponse.status)
     }
+
+    @Test
+    fun `test get products price filtering and validation via HTTP`() = testApplication {
+        application {
+            configureSerialization()
+            configureStatusPages()
+            configureRouting()
+        }
+        val jsonClient = createClient {
+            install(ContentNegotiation) {
+                json()
+            }
+        }
+
+        // Setup category and products
+        val cat = defaultCategoryRepository.create("Gadgets")
+        defaultProductRepository.create("Budget Earbuds", "Basic", 50.0, 10, cat.id)
+        defaultProductRepository.create("Mid-tier Speaker", "Bluetooth", 250.0, 10, cat.id)
+        defaultProductRepository.create("Flagship Phone", "Premium", 800.0, 5, cat.id)
+
+        // 1. GET /products?minPrice=100&maxPrice=500 -> Expect Mid-tier Speaker
+        val rangeResponse = jsonClient.get("/products?minPrice=100&maxPrice=500")
+        assertEquals(HttpStatusCode.OK, rangeResponse.status)
+        val filtered = rangeResponse.body<List<Product>>()
+        assertEquals(1, filtered.size)
+        assertEquals("Mid-tier Speaker", filtered[0].name)
+        assertEquals(250.0, filtered[0].price)
+
+        // 2. GET /products?minPrice=-10 -> 400 Bad Request
+        val negativeMinResponse = jsonClient.get("/products?minPrice=-10")
+        assertEquals(HttpStatusCode.BadRequest, negativeMinResponse.status)
+        val negativeMinError = negativeMinResponse.body<ErrorResponse>()
+        assertTrue(negativeMinError.message.contains("minPrice must be non-negative"))
+
+        // 3. GET /products?minPrice=500&maxPrice=100 -> 400 Bad Request
+        val invalidRangeResponse = jsonClient.get("/products?minPrice=500&maxPrice=100")
+        assertEquals(HttpStatusCode.BadRequest, invalidRangeResponse.status)
+        val invalidRangeError = invalidRangeResponse.body<ErrorResponse>()
+        assertTrue(invalidRangeError.message.contains("cannot be greater than maxPrice"))
+
+        // 4. GET /products?minPrice=abc -> 400 Bad Request
+        val invalidMinFormatResponse = jsonClient.get("/products?minPrice=abc")
+        assertEquals(HttpStatusCode.BadRequest, invalidMinFormatResponse.status)
+        val invalidMinFormatError = invalidMinFormatResponse.body<ErrorResponse>()
+        assertTrue(invalidMinFormatError.message.contains("Invalid minPrice query parameter"))
+
+        // 5. GET /products?maxPrice=xyz -> 400 Bad Request
+        val invalidMaxFormatResponse = jsonClient.get("/products?maxPrice=xyz")
+        assertEquals(HttpStatusCode.BadRequest, invalidMaxFormatResponse.status)
+        val invalidMaxFormatError = invalidMaxFormatResponse.body<ErrorResponse>()
+        assertTrue(invalidMaxFormatError.message.contains("Invalid maxPrice query parameter"))
+    }
 }
